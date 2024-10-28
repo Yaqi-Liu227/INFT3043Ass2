@@ -1,12 +1,17 @@
 package nuber.students;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
  * The core Dispatch class that instantiates and manages everything for Nuber
  * 
- * @author james
+ * @author Yaqi Liu
  *
  */
 public class NuberDispatch {
@@ -18,6 +23,12 @@ public class NuberDispatch {
 	
 	private boolean logEvents = false;
 	
+	private final HashMap<String, NuberRegion> regions = new HashMap<>();
+    private final Queue<Driver> driverQueue = new LinkedList<>();
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    protected int bookingsAwaitingDriver = 0;
+    
+	
 	/**
 	 * Creates a new dispatch objects and instantiates the required regions and any other objects required.
 	 * It should be able to handle a variable number of regions based on the HashMap provided.
@@ -27,6 +38,12 @@ public class NuberDispatch {
 	 */
 	public NuberDispatch(HashMap<String, Integer> regionInfo, boolean logEvents)
 	{
+		this.logEvents = logEvents;
+        // Initialize regions
+        for (String regionName : regionInfo.keySet()) {
+            int maxJobs = regionInfo.get(regionName);
+            regions.put(regionName, new NuberRegion(this, regionName, maxJobs));
+        }
 	}
 	
 	/**
@@ -37,8 +54,15 @@ public class NuberDispatch {
 	 * @param The driver to add to the queue.
 	 * @return Returns true if driver was added to the queue
 	 */
-	public boolean addDriver(Driver newDriver)
+	public synchronized boolean addDriver(Driver newDriver)
 	{
+		if (driverQueue.size() < MAX_DRIVERS) {
+            driverQueue.offer(newDriver);
+            notifyAll();
+            //System.out.println("Driver added to dispatch: " + newDriver.name);
+            return true;
+        }
+        return false;
 	}
 	
 	/**
@@ -47,9 +71,16 @@ public class NuberDispatch {
 	 * Must be able to have drivers added from multiple threads.
 	 * 
 	 * @return A driver that has been removed from the queue
+	 * @throws InterruptedException 
 	 */
-	public Driver getDriver()
+	public synchronized Driver getDriver() throws InterruptedException
 	{
+		while (driverQueue.isEmpty()) {
+	        wait();
+	    }
+		Driver driver = driverQueue.poll();
+		//System.out.println("Driver dispatched: " + driver.name);
+	    return driver;
 	}
 
 	/**
@@ -80,6 +111,22 @@ public class NuberDispatch {
 	 * @return returns a Future<BookingResult> object
 	 */
 	public Future<BookingResult> bookPassenger(Passenger passenger, String region) {
+		NuberRegion nuberRegion = regions.get(region);
+        if (nuberRegion != null) {
+            // Ensure the region is not shut down and can process the booking
+            Future<BookingResult> future = nuberRegion.bookPassenger(passenger);
+            if (future != null) {
+                bookingsAwaitingDriver++; // Increment the count of bookings awaiting drivers
+                logEvent(null, "Creating booking"); // Passenger is now booked
+                //System.out.print("\n" + bookingsAwaitingDriver + "\n");
+                return future;
+            }
+            // Log a message when booking fails (for example, due to shutdown)
+            logEvent(null, "Booking rejected for passenger in region: " + region);
+        } else {
+            logEvent(null, "Region not found for booking: " + region);
+        }
+        return null;
 	}
 
 	/**
@@ -91,12 +138,21 @@ public class NuberDispatch {
 	 */
 	public int getBookingsAwaitingDriver()
 	{
+		return bookingsAwaitingDriver;
 	}
+	
+	public synchronized void bookingStarted() {
+        bookingsAwaitingDriver--; // Decrease when booking starts (driver assigned)
+    }
 	
 	/**
 	 * Tells all regions to finish existing bookings already allocated, and stop accepting new bookings
 	 */
 	public void shutdown() {
+		for (NuberRegion region : regions.values()) {
+            region.shutdown();
+        }
+        executorService.shutdown();
 	}
-
+	
 }

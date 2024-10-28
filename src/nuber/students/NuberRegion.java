@@ -1,6 +1,13 @@
 package nuber.students;
 
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 /**
  * A single Nuber region that operates independently of other regions, other than getting 
@@ -13,10 +20,17 @@ import java.util.concurrent.Future;
  * 
  * Bookings do NOT have to be completed in FIFO order.
  * 
- * @author james
+ * @author Yaqi Liu
  *
  */
 public class NuberRegion {
+	
+	private final NuberDispatch dispatch;
+    private final String regionName;
+    private final Semaphore availableSlots;
+    private final ExecutorService executorService;
+    private final LinkedBlockingQueue<Booking> pendingBookings;
+    private volatile boolean shutdown;
 
 	
 	/**
@@ -28,8 +42,12 @@ public class NuberRegion {
 	 */
 	public NuberRegion(NuberDispatch dispatch, String regionName, int maxSimultaneousJobs)
 	{
-		
-
+		this.dispatch = dispatch;
+        this.regionName = regionName;
+        this.availableSlots = new Semaphore(maxSimultaneousJobs);
+        this.executorService = Executors.newCachedThreadPool();
+        this.pendingBookings = new LinkedBlockingQueue<>();
+        this.shutdown = false;
 	}
 	
 	/**
@@ -43,9 +61,34 @@ public class NuberRegion {
 	 * @param waitingPassenger
 	 * @return a Future that will provide the final BookingResult object from the completed booking
 	 */
-	public Future<BookingResult> bookPassenger(Passenger waitingPassenger)
+	public synchronized Future<BookingResult> bookPassenger(Passenger waitingPassenger)
 	{		
-		
+		if (shutdown) {
+            //dispatch.logEvent(null, regionName + ": Rejected booking due to shutdown.");
+            return null; // Reject booking if region is shutting down
+        }
+
+        // Create a new booking
+        Booking booking = new Booking(dispatch, waitingPassenger);
+        //dispatch.logEvent(booking, "Booking created for passenger " + waitingPassenger.name);
+
+        return executorService.submit(() -> {
+            try {
+                // Acquire a slot for active bookings in the region
+                availableSlots.acquire();
+
+                //dispatch.logEvent(booking, "Booking started for passenger " + waitingPassenger.name);
+                BookingResult result = booking.call();
+
+                //dispatch.logEvent(booking, "Booking completed for passenger " + waitingPassenger.name);
+                return result;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                return null;
+            } finally {
+                availableSlots.release();
+            }
+        });
 	}
 	
 	/**
@@ -53,6 +96,9 @@ public class NuberRegion {
 	 */
 	public void shutdown()
 	{
+		dispatch.logEvent(null, regionName + ": Region shutting down.");
+        this.shutdown = true; // Stop accepting new bookings
+        executorService.shutdown(); // Gracefully shutdown the executor service
 	}
-		
+
 }
