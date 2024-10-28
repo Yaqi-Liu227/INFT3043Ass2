@@ -19,8 +19,8 @@ public class Driver extends Person {
 	public void pickUpPassenger(Passenger newPassenger) throws InterruptedException
 	{
 		this.currentPassenger = newPassenger; // Store the passenger
-        // Sleep for a random time between 0 and maxSleep (simulate time to pick up passenger)
-        Thread.sleep((int) (Math.random() * maxSleep));
+        // Sleep for a random time between 0 and maxSleep
+        Thread.sleep((int) (Math.random() * this.maxSleep));
 	}
 
 	/**
@@ -34,7 +34,6 @@ public class Driver extends Person {
             int travelTime = currentPassenger.getTravelTime();
             Thread.sleep(travelTime);
         }
-		this.currentPassenger = null;
 	}
 	
 }

@@ -43,6 +43,7 @@ public class Booking implements Callable<BookingResult>{
 	public Booking(NuberDispatch dispatch, Passenger passenger)
 	{
 		this.dispatch = dispatch;
+		dispatch.logEvent(this, "Creating booking");
         this.passenger = passenger;
         this.jobID = jobCounter.getAndIncrement();
         this.startTime = new Date().getTime();
@@ -70,12 +71,14 @@ public class Booking implements Callable<BookingResult>{
 		//dispatch.logEvent(this, "Creating booking");
 
         // 1. Ask Dispatch for an available driver
-        assignedDriver = dispatch.getDriver(); // This will wait if no driver is available
+		dispatch.logEvent(this, "Starting booking, getting driver");
+		
+        assignedDriver = dispatch.getDriver();
         
         dispatch.bookingStarted();
 
         // 2. Log the driver assignment
-        dispatch.logEvent(this, "Starting booking, getting driver");
+        
 
         // 3. Pick up the passenger
         assignedDriver.pickUpPassenger(passenger);

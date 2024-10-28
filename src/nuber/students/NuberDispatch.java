@@ -117,7 +117,7 @@ public class NuberDispatch {
             Future<BookingResult> future = nuberRegion.bookPassenger(passenger);
             if (future != null) {
                 bookingsAwaitingDriver++; // Increment the count of bookings awaiting drivers
-                logEvent(null, "Creating booking"); // Passenger is now booked
+                //logEvent(null, "Creating booking");
                 //System.out.print("\n" + bookingsAwaitingDriver + "\n");
                 return future;
             }
