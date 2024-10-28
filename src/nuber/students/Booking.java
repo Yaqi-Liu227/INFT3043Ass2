@@ -22,10 +22,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Yaqi Liu
  *
  */
-public class Booking implements Callable<BookingResult>{
+public class Booking implements Callable<BookingResult>{	
 	
-	private static final AtomicInteger jobCounter = new AtomicInteger(1);
-    private final int jobID;
+    private final int jobID = getNextID();
+    private static int nextJobID = 1;
     private final NuberDispatch dispatch;
     private final Passenger passenger;
     private Driver assignedDriver;
@@ -45,11 +45,15 @@ public class Booking implements Callable<BookingResult>{
 		this.dispatch = dispatch;
 		dispatch.logEvent(this, "Creating booking");
         this.passenger = passenger;
-        this.jobID = jobCounter.getAndIncrement();
-        this.startTime = new Date().getTime();
+        this.startTime = (new Date()).getTime();
 	}
 	
 	
+	private int getNextID() {
+		return nextJobID++;
+	}
+
+
 	/**
 	 * At some point, the Nuber Region responsible for the booking can start it (has free spot),
 	 * and calls the Booking.call() function, which:
@@ -70,33 +74,24 @@ public class Booking implements Callable<BookingResult>{
 	public BookingResult call() throws InterruptedException {
 		//dispatch.logEvent(this, "Creating booking");
 
-        // 1. Ask Dispatch for an available driver
 		dispatch.logEvent(this, "Starting booking, getting driver");
 		
         assignedDriver = dispatch.getDriver();
         
         dispatch.bookingStarted();
-
-        // 2. Log the driver assignment
         
-
-        // 3. Pick up the passenger
         assignedDriver.pickUpPassenger(passenger);
         dispatch.logEvent(this, "Starting, on way to passenger");
 
-        // 4. Drive to the destination
         assignedDriver.driveToDestination();
         dispatch.logEvent(this, "Collected passenger, on way to destination");
 
-        // 5. Calculate the total trip duration
-        long tripDuration = System.currentTimeMillis() - startTime;
+        long tripDuration = (new Date()).getTime() - startTime;
 
-        // 6. Return the driver back to Dispatch
         dispatch.addDriver(assignedDriver);
         dispatch.logEvent(this, "At destination, driver is now free");
 
-        // 7. Return the BookingResult
-        return new BookingResult(jobID, passenger, assignedDriver, tripDuration);
+        return new BookingResult(this.jobID, this.passenger, this.assignedDriver, tripDuration);
 	}
 	
 

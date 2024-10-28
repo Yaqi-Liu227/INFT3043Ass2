@@ -122,7 +122,7 @@ public class NuberDispatch {
                 return future;
             }
             // Log a message when booking fails (for example, due to shutdown)
-            logEvent(null, "Booking rejected for passenger in region: " + region);
+            //logEvent(null, "Booking rejected for passenger in region: " + region);
         } else {
             logEvent(null, "Region not found for booking: " + region);
         }
@@ -142,7 +142,7 @@ public class NuberDispatch {
 	}
 	
 	public synchronized void bookingStarted() {
-        bookingsAwaitingDriver--; // Decrease when booking starts (driver assigned)
+        bookingsAwaitingDriver--;
     }
 	
 	/**

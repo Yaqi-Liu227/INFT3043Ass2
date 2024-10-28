@@ -65,7 +65,7 @@ public class NuberRegion {
 	{		
 		if (shutdown) {
             //dispatch.logEvent(null, regionName + ": Rejected booking due to shutdown.");
-            return null; // Reject booking if region is shutting down
+            return null;
         }
 
         // Create a new booking
@@ -74,7 +74,6 @@ public class NuberRegion {
 
         return executorService.submit(() -> {
             try {
-                // Acquire a slot for active bookings in the region
                 availableSlots.acquire();
 
                 //dispatch.logEvent(booking, "Booking started for passenger " + waitingPassenger.name);
@@ -96,9 +95,9 @@ public class NuberRegion {
 	 */
 	public void shutdown()
 	{
-		dispatch.logEvent(null, regionName + ": Region shutting down.");
-        this.shutdown = true; // Stop accepting new bookings
-        executorService.shutdown(); // Gracefully shutdown the executor service
+        this.shutdown = true; 
+        dispatch.logEvent(null, regionName + ": Region shutting down.");
+        executorService.shutdown();
 	}
 
 }
